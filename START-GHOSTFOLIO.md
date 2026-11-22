@@ -34,11 +34,11 @@ Ghostfolio fetches stock prices about once an hour, and only while it is running
 
 ### PSE price history
 
-You don't need to do anything to update PSE prices. A fourth container, `gf-pse-sync`, starts and stops with Ghostfolio. Each time it starts, it downloads all closing prices since July 1, 2026 from PSE EDGE and updates them in Ghostfolio. This takes about a minute; reload the page to see the new prices.
+You don't need to do anything to update PSE prices. A fourth container, `gf-pse-sync`, starts and stops with Ghostfolio. Each time it starts, it downloads all closing prices since November 1, 2025 from PSE EDGE, plus the last 12 months of the PSEi index from EOD Historical Data, and updates them in Ghostfolio. This takes about a minute; reload the page to see the new prices.
 
 - If you leave Ghostfolio running, it updates again each day at 6:30 PM Manila time.
 - Days when Ghostfolio was off are filled in by the next update.
-- A ticker shows `FAIL` if its prices don't reach back to July 1, 2026. Its existing prices stay as they are.
+- A ticker shows `FAIL` if its prices don't reach back to the first week of November 2025. Its existing prices stay as they are.
 - If an update fails, it tries again an hour later.
 
 See what the last update did. Each ticker's line starts with `OK` or `FAIL`:
@@ -72,3 +72,22 @@ docker logs --tail 50 ghostfolio
 ```
 
 If you see an error about connecting to Docker, Docker Desktop is not running yet. Start it and try again.
+
+## Market benchmarks (added November 22, 2026)
+
+Besides your PSE holdings, Ghostfolio tracks these market symbols. Ghostfolio updates them on its own; you don't need to do anything.
+
+| Symbol | What it is | Benchmark? |
+|---|---|---|
+| `GC=F` | Gold futures (USD) | Yes |
+| `^GSPC` | S&P 500 | Yes |
+| `GF_PSEI` (named PSEi) | PSEi index, filled by `gf-pse-sync` from EOD Historical Data (Yahoo has no PSEi history) | Yes |
+| `DX-Y.NYB` | US dollar index | No, price history only |
+| `^TNX` | US 10-year Treasury yield | No, price history only |
+| `^VIX` | Volatility (fear) index | No, price history only |
+
+Benchmarks appear under **Markets** and can be picked on the **Analysis** page to compare your portfolio against them. To change them, go to **Admin Control → Market Data**, open the symbol, and use its **Benchmark** setting.
+
+### Buying-conditions check
+
+Ask Claude "is the market good for buying?" or run `/market-check`. It uses these prices (read-only) to suggest how much to buy this month and which holdings to favour. A one-line summary also appears in Monday's morning brief.
