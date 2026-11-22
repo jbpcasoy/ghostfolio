@@ -72,3 +72,18 @@ docker logs --tail 50 ghostfolio
 ```
 
 If you see an error about connecting to Docker, Docker Desktop is not running yet. Start it and try again.
+
+## Market benchmarks (added November 22, 2026)
+
+Besides your PSE holdings, Ghostfolio tracks these Yahoo Finance symbols. Ghostfolio updates them on its own; you don't need to do anything.
+
+| Symbol | What it is | Benchmark? |
+|---|---|---|
+| `GC=F` | Gold futures (USD) | Yes |
+| `^GSPC` | S&P 500 | Yes |
+| `PSEI.PS` | PSEi | Yes, but Yahoo only has the latest day, so it has no history |
+| `DX-Y.NYB` | US dollar index | No, price history only |
+| `^TNX` | US 10-year Treasury yield | No, price history only |
+| `^VIX` | Volatility (fear) index | No, price history only |
+
+Benchmarks appear under **Markets** and can be picked on the **Analysis** page to compare your portfolio against them. To change them, go to **Admin Control → Market Data**, open the symbol, and use its **Benchmark** setting.
