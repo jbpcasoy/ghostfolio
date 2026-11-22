@@ -7,12 +7,12 @@
 
 COMPANIES="AC:57 AREIT:679 CNPF:652 CNVRG:680 CREIT:691 DDMPR:681 DNL:639 FILRT:683
 JFC:86 MBT:128 MER:118 MONDE:682 OGP:704 PGOLD:629 RCR:684 SGP:166 SMC:154 URC:124
-AEV:16 ALI:180 LTG:12 MREIT:685 RLC:195"
+AEV:16 ALI:180 LTG:12 MREIT:685 RLC:195 GTCAP:633 ACEN:233"
 
 # Every update covers this date up to today. A ticker fails, and nothing is written
 # for it, if its data doesn't reach back to LATEST_FIRST_DAY (allows for market holidays).
-HISTORY_START=07-01-2026
-LATEST_FIRST_DAY=20260703
+HISTORY_START=11-01-2025
+LATEST_FIRST_DAY=20251107
 
 UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36"
 TO_SQL_VALUES='[.chartData[] | "(\($q)\(.CHART_DATE | strptime("%b %d, %Y %H:%M:%S") | strftime("%Y-%m-%d"))\($q),\(.CLOSE | tonumber))"] | unique_by(.[0:13]) | join(",")'
@@ -56,8 +56,32 @@ SET \"marketPrice\" = EXCLUDED.\"marketPrice\", state = EXCLUDED.state;"
   echo "OK    $symbol  $count days"
 }
 
+# PSEi index level from EOD Historical Data (PSE EDGE only shows today's value).
+# The free plan returns the last 12 months, about 240 trading days; one call per sync.
+# Stored on the MANUAL asset GF_PSEI ("PSEi"), which is a Ghostfolio benchmark.
+sync_psei() {
+  [ -n "$API_KEY_EOD_HISTORICAL_DATA" ] || { echo "API_KEY_EOD_HISTORICAL_DATA is not set"; return 1; }
+  start=$(echo "$HISTORY_START" | awk -F- '{ print $3 "-" $1 "-" $2 }')
+  values=$(curl -fsS --max-time 60 -G https://eodhd.com/api/eod/PSEI.INDX \
+    --data-urlencode "api_token=$API_KEY_EOD_HISTORICAL_DATA" -d fmt=json -d "from=$start" |
+    jq -r --arg q "'" '[.[] | select(.close != null) | "(\($q)\(.date)\($q),\(.close))"] | join(",")') || return 1
+  count=$(echo "$values" | grep -o "),(" | wc -l)
+  count=$((count + 1))
+  [ "$count" -ge 200 ] || { echo "only $count days returned"; return 1; }
+
+  sql="INSERT INTO \"MarketData\" (id, \"dataSource\", symbol, date, \"marketPrice\", state)
+SELECT gen_random_uuid()::text, 'MANUAL', 'GF_PSEI', v.d::timestamp, v.price::double precision, 'CLOSE'
+FROM (VALUES $values) AS v(d, price)
+ON CONFLICT (\"dataSource\", symbol, date) DO UPDATE
+SET \"marketPrice\" = EXCLUDED.\"marketPrice\", state = EXCLUDED.state;"
+  result=$(echo "$sql" | psql -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1) || return 1
+  [ "$result" = "INSERT 0 $count" ] || { echo "expected $count rows, database said: $result"; return 1; }
+  echo "OK    PSEi  $count days"
+}
+
 sync_all() {
   failed=0
+  sync_psei || { echo "FAIL  PSEi"; failed=$((failed + 1)); }
   for company in $COMPANIES; do
     symbol=${company%:*}
     sync_ticker "$symbol" "${company#*:}" || { echo "FAIL  $symbol"; failed=$((failed + 1)); }
